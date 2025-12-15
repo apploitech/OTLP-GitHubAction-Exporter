@@ -14,7 +14,6 @@ from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.metrics import (
     Counter,
-    Gauge,
     Histogram,
     MeterProvider,
     ObservableCounter,
@@ -31,7 +30,6 @@ from opentelemetry.sdk.metrics.view import View, ExplicitBucketHistogramAggregat
 
 deltaTemporality = {
     Counter: AggregationTemporality.DELTA,
-    Gauge: AggregationTemporality.CUMULATIVE,
     UpDownCounter: AggregationTemporality.CUMULATIVE,
     Histogram: AggregationTemporality.DELTA,
     ObservableCounter: AggregationTemporality.DELTA,

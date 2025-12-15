@@ -124,9 +124,8 @@ job_counter.add(len(job_lst))
 successful_job_counter = meter.create_counter(name="github.workflow.successful.job_count", description="Number of Successful Jobs in the Workflow Run")
 failed_job_counter = meter.create_counter(name="github.workflow.failed.job_count", description="Number of Failed Jobs in the Workflow Run")
 
-# Workflow duration metrics
+# Workflow duration metric
 workflow_duration_histogram = meter.create_histogram(name="github.workflow.duration", description="Duration of workflow run", unit="s")
-workflow_duration_gauge = meter.create_gauge(name="github.workflow.duration.gauge", description="Duration of workflow run", unit="s")
 
 
 # Trace parent
@@ -275,10 +274,9 @@ for job in job_lst:
 workflow_run_finish_time=do_time(workflow_run_atts['updated_at'])
 p_parent.end(end_time=workflow_run_finish_time)
 
-# Record workflow duration metrics
+# Record workflow duration metric
 workflow_duration_seconds = (do_time_ms(workflow_run_atts['updated_at']) - do_time_ms(workflow_run_atts['run_started_at'])) / 1000.0
 workflow_duration_histogram.record(workflow_duration_seconds)
-workflow_duration_gauge.set(workflow_duration_seconds)
 
 print("Finished processing Workflow ->",WORKFLOW_RUN_NAME,"run id ->",WORKFLOW_RUN_ID)
 print("All data exported to OTLP")
