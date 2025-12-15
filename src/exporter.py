@@ -1,5 +1,5 @@
 from ghapi.all import GhApi
-from custom_parser import do_time,do_fastcore_decode,parse_attributes,check_env_vars
+from custom_parser import do_time,do_time_ms,do_fastcore_decode,parse_attributes,check_env_vars
 import json
 import logging
 import os
@@ -52,6 +52,15 @@ if OTLP_PROTOCOL in (None, ''):
 else:
     OTLP_PROTOCOL = OTLP_PROTOCOL.upper()
 
+# Parse histogram buckets from environment variable (comma-separated values in seconds)
+# Example: WORKFLOW_DURATION_BUCKETS="10,30,60,120,300,600,900,1800,3600"
+WORKFLOW_DURATION_BUCKETS = None
+if "WORKFLOW_DURATION_BUCKETS" in os.environ and os.getenv('WORKFLOW_DURATION_BUCKETS'):
+    try:
+        WORKFLOW_DURATION_BUCKETS = [float(b.strip()) for b in os.getenv('WORKFLOW_DURATION_BUCKETS').split(',')]
+    except ValueError:
+        print("Error parsing WORKFLOW_DURATION_BUCKETS, using default buckets")
+
 # Build Headers for request
 headers = {}
 if OTEL_EXPORTER_OTLP_HEADERS:
@@ -96,7 +105,7 @@ if GITHUB_CUSTOM_ATTS != "":
 # Set workflow level tracer. meter and logger
 global_resource = Resource(attributes=global_attributes)
 tracer = otel_tracer(OTEL_EXPORTER_OTLP_ENDPOINT, headers, global_resource, "tracer", OTLP_PROTOCOL)
-meter = otel_meter(OTEL_EXPORTER_OTLP_ENDPOINT, headers, global_resource, "meter", OTLP_PROTOCOL)
+meter = otel_meter(OTEL_EXPORTER_OTLP_ENDPOINT, headers, global_resource, "meter", OTLP_PROTOCOL, WORKFLOW_DURATION_BUCKETS)
 
 # Ensure we don't export data for the OTLP_GitHubAction-Exporter job
 workflow_run = json.loads(get_workflow_run_jobs_by_run_id)
@@ -114,6 +123,10 @@ job_counter.add(len(job_lst))
 
 successful_job_counter = meter.create_counter(name="github.workflow.successful.job_count", description="Number of Successful Jobs in the Workflow Run")
 failed_job_counter = meter.create_counter(name="github.workflow.failed.job_count", description="Number of Failed Jobs in the Workflow Run")
+
+# Workflow duration metrics
+workflow_duration_histogram = meter.create_histogram(name="github.workflow.duration", description="Duration of workflow run", unit="s")
+workflow_duration_gauge = meter.create_gauge(name="github.workflow.duration.gauge", description="Duration of workflow run", unit="s")
 
 
 # Trace parent
@@ -261,5 +274,11 @@ for job in job_lst:
 
 workflow_run_finish_time=do_time(workflow_run_atts['updated_at'])
 p_parent.end(end_time=workflow_run_finish_time)
+
+# Record workflow duration metrics
+workflow_duration_seconds = (do_time_ms(workflow_run_atts['updated_at']) - do_time_ms(workflow_run_atts['run_started_at'])) / 1000.0
+workflow_duration_histogram.record(workflow_duration_seconds)
+workflow_duration_gauge.set(workflow_duration_seconds)
+
 print("Finished processing Workflow ->",WORKFLOW_RUN_NAME,"run id ->",WORKFLOW_RUN_ID)
 print("All data exported to OTLP")
