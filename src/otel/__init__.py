@@ -25,6 +25,7 @@ from opentelemetry.sdk.metrics.export import (
     AggregationTemporality,
     PeriodicExportingMetricReader,
 )
+from opentelemetry.sdk.metrics.view import View, ExplicitBucketHistogramAggregation
 
 
 deltaTemporality = {
@@ -89,8 +90,15 @@ def otel_tracer(endpoint, headers, resource, tracer, export_protocol):
 
     return tracer
 
-def otel_meter(endpoint, headers, resource, meter, export_protocol):
+def otel_meter(endpoint, headers, resource, meter, export_protocol, histogram_buckets=None):
     reader = PeriodicExportingMetricReader(getMetricExporter(endpoint=f"{endpoint}v1/metrics",headers=headers, protocol=export_protocol ))
-    provider = MeterProvider(resource=resource, metric_readers=[reader])
+    if histogram_buckets:
+        views = [View(
+            instrument_name="github.workflow.duration",
+            aggregation=ExplicitBucketHistogramAggregation(boundaries=histogram_buckets)
+        )]
+        provider = MeterProvider(resource=resource, metric_readers=[reader], views=views)
+    else:
+        provider = MeterProvider(resource=resource, metric_readers=[reader])
     meter = metrics.get_meter(__name__,meter_provider=provider)
     return meter
